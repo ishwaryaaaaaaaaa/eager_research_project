@@ -28,9 +28,10 @@ class LocalTransformersBackend(LMBackend):
 
     def apply_chat_template(self, user_message: str) -> List[int]:
         messages = [{"role": "user", "content": user_message}]
-        return self.tokenizer.apply_chat_template(
+        encoding = self.tokenizer.apply_chat_template(
             messages, add_generation_prompt=True, tokenize=True
         )
+        return list(encoding["input_ids"])
 
     @property
     def eos_token_id(self) -> int:
