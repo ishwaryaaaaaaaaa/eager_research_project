@@ -7,7 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backends.local_transformers import LocalTransformersBackend
 from engine.branch_policy import entropy_gated
-from engine.branch_tree import BranchTree, reconstruct_sequence
+from engine.branch_tree import BranchTree, reconstruct_sequence, reconstruct_trace
 
 PROMPT = "Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May? Think step by step."
 THETA = 1.2
@@ -33,3 +33,14 @@ for i, leaf in enumerate(result.completed_leaves):
     print(f"--- Leaf {i} ({len(seq)} tokens) ---")
     print(text[:300].replace("\n", " "))
     print()
+
+print("=" * 60)
+print(f"Full per-token entropy trace for Leaf 0 (up to the first branch point):")
+print(f"{'step':>4} {'token':<20} {'entropy':>8}  branch?")
+print("-" * 50)
+for step, (token_id, entropy, is_branch) in enumerate(reconstruct_trace(result.completed_leaves[0])):
+    token_text = backend.decode([token_id]).replace("\n", "\\n")
+    marker = "  <-- BRANCH" if is_branch else ""
+    print(f"{step:>4} {token_text:<20} {entropy:>8.3f}{marker}")
+    if is_branch:
+        break

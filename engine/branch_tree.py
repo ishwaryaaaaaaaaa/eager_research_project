@@ -22,6 +22,22 @@ class TreeResult:
     total_nodes: int  # generated tokens only; root (the prompt) is never counted
 
 
+def reconstruct_trace(leaf: Node) -> List[tuple]:
+    """Like reconstruct_sequence, but also returns each token's entropy and
+    whether it was a branch point (its parent had more than one child) --
+    this reconstructs the full per-step trace after the fact, since every
+    Node already carries the entropy value that led to it."""
+    trace: List[tuple] = []
+    node = leaf
+    while node.parent is not None:
+        assert node.token_id is not None
+        is_branch_point = len(node.parent.children) > 1
+        trace.append((node.token_id, node.entropy, is_branch_point))
+        node = node.parent
+    trace.reverse()
+    return trace
+
+
 def reconstruct_sequence(leaf: Node) -> List[int]:
     """Walk parent pointers back to the root, return generated token ids in
     root-to-leaf order. The root is a sentinel (token_id=None) and is never
