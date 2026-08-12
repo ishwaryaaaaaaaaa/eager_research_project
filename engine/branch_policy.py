@@ -15,6 +15,17 @@ def entropy_gated(theta: float) -> BranchPolicy:
     return policy
 
 
+def never() -> BranchPolicy:
+    """Used by greedy/full_parallel: a single BranchTree call should walk
+    exactly one path and never fork. Paired with M=1 in the caller as a
+    belt-and-suspenders guarantee, not because this alone is load-bearing."""
+
+    def policy(entropy: float, num_active_leaves: int, M: int, steps_since_last_branch: int) -> bool:
+        return False
+
+    return policy
+
+
 def fixed_interval(n: int) -> BranchPolicy:
     """Ablation baseline: ignore entropy, branch every n steps, still capped
     at M. Isolates whether entropy-gating specifically matters, or whether
