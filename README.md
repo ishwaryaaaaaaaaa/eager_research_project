@@ -38,59 +38,41 @@ against local model weights.
 ## Project structure
 
 ```
-backends/
-  base.py                 LMBackend interface: encode/decode/next_token_topk.
-                           Deliberately stateless per call (full token
-                           sequence in, distribution out) so a future
-                           OpenAI-compatible backend can drop in without
-                           the engine code changing.
-  local_transformers.py   Concrete backend: Qwen2.5-1.5B-Instruct on the
-                           local GPU. One forward pass per call, returns
-                           top-K=20 renormalized next-token probabilities.
-                           Known limitation: no KV-cache reuse yet (each
-                           call recomputes the full sequence).
-
-engine/
-  entropy.py               Pure top-K Shannon entropy function (paper Eq. 1).
-                           No model/backend knowledge at all.
-  branch_policy.py          Three interchangeable "should I branch right
-                           now?" functions: entropy_gated(theta) (the real
-                           EAGER rule), fixed_interval(n) (ablation
-                           baseline - branch on a schedule, ignore
-                           entropy), never() (used by greedy/full_parallel).
-  branch_tree.py            The core engine. Node (token + parent pointer +
-                           entropy + branch counter), BranchTree.run()
-                           grows a real tree in lockstep, sharing every
-                           token before a fork. reconstruct_sequence and
-                           reconstruct_trace walk the tree back to build
-                           full sequences / per-token entropy traces.
-  modes.py                  run_mode() dispatcher: greedy, full_parallel,
-                           branch_fixed, eager - all four are really just
-                           BranchTree called with a different policy
-                           and/or a different number of times.
-
-scripts/
-  01_sanity_check.py       Phase 1 proof: model loads on GPU, entropy is
-                           computable at every generation step.
-  02_branch_tree_test.py   Proves the tree shares prefixes for real (not
-                           just in theory) and that entropy correctly
-                           discriminates branch points from non-branch
-                           points.
-  03_modes_test.py         Runs all 4 modes on the same prompt, confirms
-                           full_parallel shows exactly 0% token savings
-                           (by design - it shares nothing) while the two
-                           tree-based modes show real savings.
-
-data/                      (empty - reserved for Task 5's evaluation prompts)
-eval/                      (empty - reserved for Task 6/7's harness + scorer)
-
-.vscode/
-  settings.json            Points VS Code at the interpreter with
-                           torch/transformers installed.
-  launch.json               Pre-built debug configs for each script, so
-                           breakpoints in engine/ files hit correctly
-                           regardless of which tab is focused.
+eager-ai research/
+├── backends/
+│   ├── base.py
+│   └── local_transformers.py
+├── engine/
+│   ├── entropy.py
+│   ├── branch_policy.py
+│   ├── branch_tree.py
+│   └── modes.py
+├── scripts/
+│   ├── 01_sanity_check.py
+│   ├── 02_branch_tree_test.py
+│   └── 03_modes_test.py
+├── data/              # empty - reserved for Task 5
+├── eval/              # empty - reserved for Task 6/7
+├── .vscode/
+│   ├── settings.json
+│   └── launch.json
+├── requirements.txt
+└── README.md
 ```
+
+| File | Purpose |
+|---|---|
+| `backends/base.py` | `LMBackend` interface (`encode`/`decode`/`next_token_topk`). Deliberately stateless per call — full token sequence in, distribution out — so a future OpenAI-compatible backend can drop in without the engine code changing. |
+| `backends/local_transformers.py` | Concrete backend: Qwen2.5-1.5B-Instruct on the local GPU. One forward pass per call, returns top-K=20 renormalized next-token probabilities. Known limitation: no KV-cache reuse yet (recomputes the full sequence every call). |
+| `engine/entropy.py` | Pure top-K Shannon entropy function (paper Eq. 1). No model/backend knowledge at all. |
+| `engine/branch_policy.py` | Three interchangeable "should I branch right now?" functions: `entropy_gated(theta)` (the real EAGER rule), `fixed_interval(n)` (ablation baseline — branch on a schedule, ignore entropy), `never()` (used by `greedy`/`full_parallel`). |
+| `engine/branch_tree.py` | The core engine. `Node` (token + parent pointer + entropy + branch counter), `BranchTree.run()` grows a real tree in lockstep, sharing every token before a fork. `reconstruct_sequence`/`reconstruct_trace` walk the tree back into full sequences / per-token entropy traces. |
+| `engine/modes.py` | `run_mode()` dispatcher: `greedy`, `full_parallel`, `branch_fixed`, `eager` — all four are really just `BranchTree` called with a different policy and/or a different number of times. |
+| `scripts/01_sanity_check.py` | Phase 1 proof: model loads on GPU, entropy is computable at every generation step. |
+| `scripts/02_branch_tree_test.py` | Proves the tree shares prefixes for real (not just in theory), and that entropy correctly discriminates branch points from non-branch points. |
+| `scripts/03_modes_test.py` | Runs all 4 modes on the same prompt; confirms `full_parallel` shows exactly 0% token savings (by design — it shares nothing) while the two tree-based modes show real savings. |
+| `.vscode/settings.json` | Points VS Code at the interpreter with torch/transformers installed. |
+| `.vscode/launch.json` | Pre-built debug configs per script, so breakpoints in `engine/*.py` hit correctly regardless of which tab is focused. |
 
 ## Setup
 
